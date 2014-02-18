@@ -33,3 +33,16 @@ Create a gpo to add the site to the intranet zone, to allow single sign on from 
 1. Open \<Computer Configuration/Policies/Administrative Templates/Windows Components/Internet Explorer/Internet Control Panel/Security Page>
 2. Set "Site to Zone Assignment List" to "Enabled"
 3. Add the address to your Play app with a value of 1.
+4. 
+
+# Adding to your project
+
+Add resolver and dependency.
+
+```
+libraryDependencies ++= Seq(
+  "dk.slyng.play.module" % "play-module-ad-sso_2.10" % "0.1.0"
+)
+
+resolvers += Resolver.url("Play Module AD SSO Repository", url("http://SlyngDK.github.com/releases/"))(Resolver.ivyStylePatterns)
+```
