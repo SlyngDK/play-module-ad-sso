@@ -1,6 +1,6 @@
 # Play Module AD SSO
 
-This is a play 2 module for kerberos SSO, with support for fallback.
+This is a play 2.3 module for kerberos SSO, with support for fallback.
 
 It also contain a simple ldap class to get user details and authenticate, using username and password.
 
@@ -25,7 +25,7 @@ Take and look at the sample and see how it works.
 
 2. Map the service principal name to the user account that you created, and then generate a keytab file by running the ktpass command on the domain controller.
 ```cmd
-ktpass –princ <SPN(HTTP/www.domain.local@DOMAIN.LOCAL)> -out <path_to_keytab> -mapuser <account_name> -mapOp set –pass <account_password>
+ktpass -princ <SPN(HTTP/www.domain.local@DOMAIN.LOCAL)> -out <path_to_keytab> -mapuser <account_name> -mapOp set -pass <account_password> -ptype KRB5_NT_PRINCIPAL -crypto All -kvno 0
 ```
 
 Create a gpo to add the site to the intranet zone, to allow single sign on from the Windows PC.
@@ -41,7 +41,7 @@ Add resolver and dependency.
 
 ```
 libraryDependencies ++= Seq(
-  "dk.slyng.play.module" % "play-module-ad-sso_2.10" % "0.1.0"
+  "dk.slyng.play.module" % "play-module-ad-sso_2.11" % "0.2.0"
 )
 
 resolvers += Resolver.url("Play Module AD SSO Repository", url("http://SlyngDK.github.com/releases/"))(Resolver.ivyStylePatterns)

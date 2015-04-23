@@ -1,12 +1,13 @@
 package dk.slyng.play.module.adsso.secured;
 
-import play.api.templates.Html;
+
+import play.twirl.api.Content;
 
 public interface SecuredInf {
 
-    public boolean isLoggedIn();
+    boolean isLoggedIn();
 
-    public void userLoggedIn(String username);
+    void userLoggedIn(String username);
 
-    public Html getHTML();
+    Content getHTML();
 }

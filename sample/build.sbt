@@ -1,14 +1,13 @@
-import play.Project._
-
 name := "sample"
 
-version := "1.0"
+version := "1.2"
+
+lazy val root = (project in file(".")).enablePlugins(PlayJava).dependsOn(dep)
+
+lazy val dep = file("..")
+
+scalaVersion := "2.11.1"
 
 libraryDependencies ++= Seq(
-  "dk.slyng.play.module" % "play-module-ad-sso_2.10" % "0.1.0"
+  "dk.slyng.play.module" % "play-module-ad-sso_2.11" % "0.2.0"
 )
-
-resolvers += Resolver.url("Play Module AD SSO Repository", url("http://SlyngDK.github.com/releases/"))(Resolver.ivyStylePatterns)
-
-
-playJavaSettings

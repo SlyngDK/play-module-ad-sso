@@ -1,44 +1,20 @@
 package dk.slyng.play.module.adsso.secured;
 
 import org.apache.xerces.impl.dv.util.Base64;
-import org.ietf.jgss.*;
-import play.api.templates.Html;
+import org.ietf.jgss.GSSException;
 import play.libs.F;
 import play.mvc.Action;
 import play.mvc.Http;
 import play.mvc.Result;
-import play.mvc.SimpleResult;
-import scala.collection.mutable.StringBuilder;
+import play.twirl.api.Content;
 
-import javax.security.auth.Subject;
-import javax.security.auth.kerberos.KerberosPrincipal;
-import javax.security.auth.login.LoginContext;
-import javax.security.auth.login.LoginException;
-import java.security.Principal;
-import java.security.PrivilegedExceptionAction;
-import java.util.HashSet;
-import java.util.Set;
+import java.security.PrivilegedActionException;
+import java.util.UUID;
 
 public class SecuredAction extends Action<Secured> {
-    final SecuredLoginConfiguration securedLoginConfiguration;
-    private LoginContext loginContext;
+    private static SpnegoWorker spnegoWorker = new SpnegoWorker();
 
     public SecuredAction() {
-        securedLoginConfiguration = new SecuredLoginConfiguration();
-        Set<Principal> principals = new HashSet<>();
-        String principal = securedLoginConfiguration.getPrincipal();
-        if (principal == null) {
-            throw new NullPointerException("Principal can't be null.");
-        }
-        principals.add(new KerberosPrincipal(principal));
-        Subject subject = new Subject(false, principals, new HashSet<>(), new HashSet<>());
-
-        try {
-            loginContext = new LoginContext("", subject, null, securedLoginConfiguration);
-            loginContext.login();
-        } catch (LoginException e) {
-            e.printStackTrace();
-        }
     }
 
     private Return before(final Http.Context ctx) {
@@ -55,51 +31,69 @@ public class SecuredAction extends Action<Secured> {
         }
         if (securedInf == null)
             return new Return(badRequest("An error has occurred!!!"));
+
+        byte[] outToken = null;
         if (securedInf.isLoggedIn()) {
             return new Return(true);
         } else if (ctx.request().getHeader("Authorization") != null) {
+            String authorization = ctx.request().getHeader("Authorization");
+            authorization = authorization.substring(authorization.indexOf(" ") + 1);
+
+            byte[] authorizationBytes = Base64.decode(authorization);
+
+            System.out.println("Input token size: " + authorizationBytes.length);
+
+            String id = ctx.session().get("auth_id");
+            if (id == null) {
+                id = UUID.randomUUID().toString();
+                ctx.session().put("auth_id", id);
+            }
+
+            SSOContext context = spnegoWorker.getSsoContext(id);
+            if (context == null) {
+                System.out.println("Creating new context.");
+                System.out.println("Url: " + ctx.request().uri());
+                context = spnegoWorker.createSsoContext(id);
+            } else {
+                System.out.println("Reuse context: ");
+
+            }
             try {
-
-
-                Subject serverSubject = loginContext.getSubject();
-
-                GSSContext context = Subject.doAs(serverSubject, new PrivilegedExceptionAction<GSSContext>() {
-
-                    @Override
-                    public GSSContext run() throws Exception {
-                        GSSManager gssManager = GSSManager.getInstance();
-
-                        Oid spnegoOid = new Oid("1.3.6.1.5.5.2");
-
-                        GSSName serverName = gssManager.createName(securedLoginConfiguration.getPrincipal(), GSSName.NT_HOSTBASED_SERVICE);
-                        GSSCredential serverCreds = gssManager.createCredential(serverName,
-                                GSSCredential.DEFAULT_LIFETIME,
-                                spnegoOid,
-                                GSSCredential.ACCEPT_ONLY);
-
-
-                        GSSContext context = gssManager.createContext(serverCreds);
-                        String authorization = ctx.request().getHeader("Authorization");
-                        authorization = authorization.substring(authorization.indexOf(" ") + 1);
-
-                        byte[] authorizationBytes = Base64.decode(authorization);
-                        context.acceptSecContext(authorizationBytes, 0, authorizationBytes.length);
-                        return context;
-                    }
-                });
-                if (context.isEstablished()) {
-                    securedInf.userLoggedIn(context.getSrcName().toString());
-                    return new Return(true);
-                }
-            } catch (Exception e) {
+                outToken = context.acceptSecContext(authorizationBytes);
+            } catch (PrivilegedActionException e) {
                 e.printStackTrace();
             }
-        }
-        ctx.response().setHeader(Http.HeaderNames.WWW_AUTHENTICATE, "Negotiate");
+            if (context.isEstablished()) {
+                try {
+                    ctx.session().remove("auth_id");
+                    securedInf.userLoggedIn(context.getSrcName().toString());
+                    context.dispose();
+                    spnegoWorker.finishSsoContext(id);
+                } catch (GSSException e) {
+                    e.printStackTrace();
+                }
 
-        Html html = securedInf.getHTML();
+                return new Return(true);
+            }
+        }
+        if (outToken == null) {
+            ctx.response().setHeader(Http.HeaderNames.WWW_AUTHENTICATE, "Negotiate");
+        } else {
+            ctx.response().setHeader(Http.HeaderNames.WWW_AUTHENTICATE, "Negotiate " + Base64.encode(outToken));
+        }
+        Content html = securedInf.getHTML();
         if (html == null) {
-            html = new Html(new StringBuilder("Unauthorized"));
+            html = new Content() {
+                @Override
+                public String body() {
+                    return "Unauthorized";
+                }
+
+                @Override
+                public String contentType() {
+                    return "text/html";
+                }
+            };
         }
         return new Return(unauthorized(html).as("text/html"));
     }
@@ -109,13 +103,13 @@ public class SecuredAction extends Action<Secured> {
     }
 
     @Override
-    public F.Promise<SimpleResult> call(Http.Context ctx) throws Throwable {
+    public F.Promise<Result> call(Http.Context ctx) throws Throwable {
         try {
             Return before = before(ctx);
             if (!before.ok) {
-                return F.Promise.pure((SimpleResult) before.result);
+                return F.Promise.pure(before.result);
             }
-            F.Promise<SimpleResult> result = delegate.call(ctx);
+            F.Promise<Result> result = delegate.call(ctx);
             after(ctx);
             return result;
         } catch (RuntimeException e) {

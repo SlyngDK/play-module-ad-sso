@@ -3,8 +3,8 @@ package controllers;
 import dk.slyng.play.module.adsso.ldap.LDAP;
 import dk.slyng.play.module.adsso.ldap.LDAPUser;
 import dk.slyng.play.module.adsso.secured.SecuredInf;
-import play.api.templates.Html;
 import play.mvc.Controller;
+import play.twirl.api.Content;
 
 import javax.naming.NamingException;
 
@@ -33,7 +33,7 @@ public class Login implements SecuredInf {
     }
 
     @Override
-    public Html getHTML() {
+    public Content getHTML() {
         return views.html.login.render();
     }
 }

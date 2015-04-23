@@ -19,6 +19,7 @@ class SecuredLoginConfiguration extends Configuration {
     public AppConfigurationEntry[] getAppConfigurationEntry(String name) {
 
         Map<String, String> options = new HashMap<>();
+        options.put("realm", Play.application().configuration().getString("secured.krb5.realm"));
         options.put("keyTab", Play.application().configuration().getString("secured.krb5.keyTab"));
         options.put("principal", principal);
         options.put("password", Play.application().configuration().getString("secured.krb5.password"));
